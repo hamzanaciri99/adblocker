@@ -1,0 +1,55 @@
+! Title: Umbra Pop-unders
+! Description: Pop-under networks. `$popup` rules are consulted by the popup
+!   guard when the browser reports a new navigation target; untyped rules never
+!   match a document load, so nothing here can close an ordinary tab.
+
+! --- Pop networks: block their SDKs outright ------------------------------
+||popads.net^$third-party
+||popcash.net^$third-party
+||popmyads.com^$third-party
+||propu.sh^$third-party
+||pushwhy.com^$third-party
+||onclickalgo.com^$third-party
+||onclickmax.com^$third-party
+||onclkds.com^$third-party
+||clickadu.com^$third-party
+||adcash.com^$third-party
+||adsterra.net^$third-party
+||highperformanceformat.com^$third-party
+||profitableratecpm.com^$third-party
+||effectiveratecpm.com^$third-party
+||pemsrv.com^$third-party
+||poweredby.jads.co^$third-party
+||galaksion.com^$third-party
+||zeydoo.com^$third-party
+||partners.house^$third-party
+||luckyforbet.com^$third-party
+
+! --- Pop targets: these close the tab if one opens ------------------------
+||popads.net^$popup
+||popcash.net^$popup
+||propu.sh^$popup
+||onclickalgo.com^$popup
+||onclkds.com^$popup
+||clickadu.com^$popup
+||adcash.com^$popup
+||adsterra.net^$popup
+||highperformanceformat.com^$popup
+||profitableratecpm.com^$popup
+||effectiveratecpm.com^$popup
+||galaksion.com^$popup
+||zeydoo.com^$popup
+||luckyforbet.com^$popup
+! Deliberately no TLD-wide rules (`*.top`, `*.click`, ...) here. They catch a
+! lot of pop domains, but they also close tabs the user opened on purpose, and a
+! blocker that eats real navigations is worse than one that misses a pop. The
+! rotating-domain case is covered by the `prevent-popunder` scriptlet instead,
+! which only defuses cross-site `window.open` from the page's own script.
+
+! --- Link shorteners used as ad interstitials -----------------------------
+||shrinkme.io^$popup
+||shrinkearn.com^$popup
+||exe.io^$popup
+||ouo.io^$popup
+||adf.ly^$popup
+||linkvertise.com^$popup

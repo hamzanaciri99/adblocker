@@ -127,16 +127,23 @@ Two families:
 
 Two ways to inject, and the choice matters enormously for detectability:
 
-| Method | Visible in `document.styleSheets`? | Visible to `getComputedStyle`? |
-|---|---|---|
-| `<style>` element in the DOM | **yes** | yes |
-| `insertCSS({origin:'AUTHOR'})` | **yes** | yes |
-| `insertCSS({origin:'USER'})` | **no** | yes |
+| Method | In `document.styleSheets`? | Beats page `!important`? | Visible to `getComputedStyle`? |
+|---|---|---|---|
+| `<style>` element in the DOM | **yes** | no | yes |
+| `insertCSS({origin:'AUTHOR'})` | no | no | yes |
+| `insertCSS({origin:'USER'})` | no | **yes** | yes |
 
-User-origin injection is invisible to CSSOM enumeration — the page cannot walk
-`document.styleSheets` and find our rules. It does *not* hide the *effect*:
-`getComputedStyle(el).display` still reports `none`. That distinction drives the
-bait-element policy in §2.
+Both `insertCSS` origins stay out of `document.styleSheets` — the browser keeps
+extension-injected sheets in a separate collection from the ones built out of
+`<style>` and `<link>` nodes, so a page walking the CSSOM finds neither. What
+separates them is the cascade: a *user*-origin `!important` declaration outranks
+an author-origin `!important`, so a site cannot un-hide our rules by escalating
+its own. We use user origin for both reasons, and never append a `<style>` node,
+which would be visible on both counts.
+
+None of this hides the *effect*: `getComputedStyle(el).display` still reports
+`none` whatever the origin. That distinction is what drives the bait-element
+policy in §2 — against a honeypot, the only winning move is not to hide it.
 
 ### 1.3 Layer 3 — scriptlets
 
@@ -542,39 +549,60 @@ adblocker/
 │   └── sites/{kayoanime,aniwave}.txt
 ├── src/
 │   ├── core/
-│   │   ├── parser.js              ·  ABP text  → IR
-│   │   ├── ir.js                  ·  rule shapes, option flags
+│   │   ├── types.js               ·  resource-type bit flags, option mapping
 │   │   ├── tokenizer.js           ·  URL + pattern tokenization
+│   │   ├── parser.js              ·  ABP text → IR, pattern → RegExp
+│   │   ├── domains.js             ·  registrable domain, entity matching
 │   │   ├── matcher.js             ·  token-bucketed runtime matcher
 │   │   ├── dnr-compiler.js        ·  IR → declarativeNetRequest JSON
 │   │   └── cosmetic.js            ·  cosmetic rule selection per hostname
 │   ├── background/
 │   │   ├── index.js               ·  entry, message router
+│   │   ├── engine.js              ·  list loading, per-hostname cache
 │   │   ├── net-firefox.js         ·  webRequest.onBeforeRequest handler
-│   │   ├── net-chrome.js          ·  ruleset toggling, session rules
-│   │   ├── injector.js            ·  chooses scriptlets + CSS per navigation
-│   │   ├── state.js               ·  per-site enable/disable, counters
-│   │   └── surrogates.js          ·  name → resource path map
+│   │   ├── net-chrome.js          ·  ruleset toggling, session allowlist
+│   │   ├── injector.js            ·  pack registration + CSS per navigation
+│   │   ├── popups.js              ·  onCreatedNavigationTarget pop guard
+│   │   └── state.js               ·  per-site enable/disable, counters
 │   ├── content/
 │   │   ├── boot.js                ·  isolated world; asks bg what to run
-│   │   ├── procedural.js          ·  :has-text/:matches-css/:upward/:remove
-│   │   └── popguard.js            ·  DOM-level pop-under interception
+│   │   └── procedural.js          ·  :has-text/:matches-css/:upward/:remove
 │   ├── inject/                    ← MAIN world, no extension APIs
-│   │   ├── runtime.js             ·  proxyNative(), toString registry
-│   │   └── scriptlets/*.js        ·  one file per scriptlet
+│   │   ├── runtime.js             ·  wrapNative(), toString registry
+│   │   ├── entry.js               ·  per-pack bundle entry point
+│   │   └── scriptlets/            ·  constants, popups, timers, network, dom
 │   ├── surrogates/*.js            ← web-accessible stubs
 │   ├── ui/{popup,options}/        ← per-site toggle, log, list management
-│   └── shared/browser.js          ← the adapter (IS_FIREFOX, insertUserCSS, …)
-└── test/                          ← node:test unit tests for parser/matcher/compiler
+│   └── shared/
+│       ├── browser.js             ← the adapter (IS_FIREFOX, insertUserCSS, …)
+│       └── surrogates.js          ← `$redirect` name → packaged file
+├── tools/
+│   ├── make-icons.mjs             ← PNG generator, so no binaries are committed
+│   └── self-test.js               ← console probe suite for D1–D12
+└── test/                          ← node:test suites for every core module
 ```
+
+Two notes on where things ended up, versus the sketch above:
+
+- **Pop-under blocking lives in the background**, not in a content script. The
+  browser tells us when a page opens a new browsing context
+  (`webNavigation.onCreatedNavigationTarget`), which is both earlier and more
+  reliable than anything observable from inside the page. `$popup` rules are the
+  only ones consulted there, and untyped filters never match a document load, so
+  the guard cannot close a tab the user opened themselves.
+- **Scriptlets are grouped by theme**, not one file per scriptlet — they share
+  the same runtime helpers, and five cohesive modules read better than fifteen
+  three-line ones.
 
 **Data flow for one navigation**
 
 1. `webNavigation.onBeforeNavigate` → background computes the hostname's
    *cosmetic bundle* (declarative selectors + procedural rules) and *scriptlet
    list* from the site packs, caching by hostname.
-2. Background registers the MAIN-world scriptlet bundle for that tab/frame
-   (route 1/2 from §3.3) **before** the document loads.
+2. Scriptlet packs are registered once at startup, not per navigation: the
+   build emits one MAIN-world bundle per domain group with its invocation list
+   already baked in, so there is no message round-trip and no window in which
+   page script could run first.
 3. Background injects the declarative CSS as user-origin.
 4. `boot.js` (isolated world) receives only the procedural rules and starts a
    debounced `MutationObserver`.
@@ -707,7 +735,12 @@ packs are plain text files loaded at runtime and refreshable without a rebuild;
 | aniwave: play/pause/seek ×10 | zero new tabs, video plays |
 | kayoanime: post → download link | no interstitial, link reachable |
 
-Run against the public detector corpora (`adblock-tester`, `d3ward/toolz`,
+`tools/self-test.js` automates this list: paste it into the DevTools console on
+any page and it runs the probes above, printing a PASS/FAIL table keyed to the
+D-numbers. The bar is that every row passes *both* with Umbra enabled and with
+it disabled — identical output is the whole claim.
+
+Also run against the public detector corpora (`adblock-tester`, `d3ward/toolz`,
 `blockads.fivefilters.org`) as a regression suite each release.
 
 ---

@@ -1,0 +1,114 @@
+! Title: Umbra Core
+! Description: General ad and tracker rules. Probe targets are redirected to a
+!   surrogate rather than blocked, so a detector sees a successful load (D2/D3).
+! Expires: 4 days
+
+! --- Ad script surrogates -------------------------------------------------
+! These four URLs appear in almost every adblock-detection routine on the web.
+! Never hard-block them.
+||pagead2.googlesyndication.com/pagead/js/adsbygoogle.js$script,redirect=googlesyndication_adsbygoogle.js
+||pagead2.googlesyndication.com/pagead/show_ads.js$script,redirect=googlesyndication_adsbygoogle.js
+||securepubads.g.doubleclick.net/tag/js/gpt.js$script,redirect=googletagservices_gpt.js
+||www.googletagservices.com/tag/js/gpt.js$script,redirect=googletagservices_gpt.js
+||google-analytics.com/analytics.js$script,redirect=google-analytics_analytics.js
+||googletagmanager.com/gtm.js$script,redirect=googletagmanager_gtm.js
+||googletagmanager.com/gtag/js$script,redirect=googletagmanager_gtm.js
+||c.amazon-adsystem.com/aax2/apstag.js$script,redirect=amazon_apstag.js
+/fuckadblock.js$script,redirect=fuckadblock.js-3.2.0
+/blockadblock.js$script,redirect=fuckadblock.js-3.2.0
+/prebid.js$script,redirect=prebid-ads.js
+/prebid-ads.js$script,redirect=prebid-ads.js
+
+! --- Ad serving -----------------------------------------------------------
+||doubleclick.net^$third-party
+||googleadservices.com^$third-party
+||googlesyndication.com^$third-party,~script
+||adservice.google.com^$third-party
+||adnxs.com^$third-party
+||adsrvr.org^$third-party
+||rubiconproject.com^$third-party
+||pubmatic.com^$third-party
+||openx.net^$third-party
+||criteo.com^$third-party
+||criteo.net^$third-party
+||taboola.com^$third-party
+||outbrain.com^$third-party
+||media.net^$third-party
+||adform.net^$third-party
+||smartadserver.com^$third-party
+||casalemedia.com^$third-party
+||sharethrough.com^$third-party
+||yieldmo.com^$third-party
+||3lift.com^$third-party
+||bidgear.com^$third-party
+||bidswitch.net^$third-party
+||teads.tv^$third-party
+||servedbyadbutler.com^$third-party
+||exoclick.com^$third-party
+||exosrv.com^$third-party
+||juicyads.com^$third-party
+||trafficjunky.net^$third-party
+||adsterra.com^$third-party
+||adskeeper.com^$third-party
+||mgid.com^$third-party
+||revcontent.com^$third-party
+||propellerads.com^$third-party
+||hilltopads.net^$third-party
+
+! --- Analytics and beacons ------------------------------------------------
+||whos.amung.us^$third-party
+||amung.us^$third-party
+||scorecardresearch.com^$third-party
+||quantserve.com^$third-party
+||hotjar.com^$third-party
+||mouseflow.com^$third-party
+||fullstory.com^$third-party
+||segment.io^$third-party
+||mixpanel.com^$third-party
+||branch.io^$third-party
+||onesignal.com^$third-party
+||pushwoosh.com^$third-party
+
+! --- Common ad paths ------------------------------------------------------
+/adsbygoogle.$script,third-party
+/pagead/js/*$script,third-party
+/ads/banner*$image,third-party
+/advertising/*$third-party
+/ad-manager/*$third-party
+/googleads/*$third-party
+
+! --- Tracking parameters --------------------------------------------------
+$removeparam=utm_source
+$removeparam=utm_medium
+$removeparam=utm_campaign
+$removeparam=utm_term
+$removeparam=utm_content
+$removeparam=fbclid
+$removeparam=gclid
+$removeparam=msclkid
+
+! --- Generic cosmetic -----------------------------------------------------
+! Kept deliberately narrow. Broad `.ad`/`.banner` rules are what hide a site's
+! bait element and convict the blocker (D1); site packs add precise selectors.
+##.adsbygoogle-noablate
+##ins.adsbygoogle:empty
+##div[id^="div-gpt-ad"]
+##div[id^="google_ads_iframe"]
+##iframe[src*="googlesyndication.com"]
+##iframe[src*="doubleclick.net"]
+##iframe[id^="aswift_"]
+##.taboola-container
+###taboola-below-article
+##div[data-widget-id^="outbrain"]
+##.OUTBRAIN
+
+! --- Bait protection ------------------------------------------------------
+! Classic honeypot selectors. Never hide these: they are meant to stay visible
+! and empty, and hiding them is the detection (D1).
+#@#.adsbox
+#@#.ad-placement
+#@#.pub_300x250
+#@#.textads
+#@#.banner_ad
+#@##AdContainer
+#@##adBanner

@@ -1,0 +1,38 @@
+! Title: Umbra site pack - kayoanime
+! A Blogger-hosted download portal: AdSense plus link-shortener interstitials in
+! front of the actual file links.
+
+! AdSense here is both the ad and the detector's probe target, so the pack opts
+! out of generic hiding and relies on the surrogate instead.
+@@||kayoanime.com^$generichide
+
+! --- Network -------------------------------------------------------------
+! Deliberately *not* a block: the surrogate in core.txt handles adsbygoogle.js,
+! and hard-blocking it is the classic tell.
+||googleads.g.doubleclick.net^$third-party
+||partner.googleadservices.com^$third-party
+
+! --- Cosmetic ------------------------------------------------------------
+kayoanime.com##ins.adsbygoogle
+kayoanime.com##.adsbygoogle-noablate
+kayoanime.com##div[id^="div-gpt-ad"]
+kayoanime.com##.widget:has(> .adsbygoogle)
+kayoanime.com##.below-post-ad
+kayoanime.com##.sidebar-ad
+
+! --- Bait protection (D1) ------------------------------------------------
+kayoanime.com#@#.adsbox
+kayoanime.com#@#.ad-placement
+kayoanime.com#@##AdContainer
+
+! --- Scriptlets ----------------------------------------------------------
+kayoanime.com##+js(set-constant, google_ad_status, 1)
+kayoanime.com##+js(set-constant, canRunAds, true)
+kayoanime.com##+js(set-constant, adsbygoogle.loaded, true)
+! Shortener interstitials in front of download links.
+kayoanime.com##+js(no-window-open-if, /shorten|redirect|\/out\?|linkvertise|shrinkme/)
+kayoanime.com##+js(prevent-popunder)
+! Collapse the "wait N seconds" gate without removing it: the page's own state
+! machine still runs every step, it just finishes at once.
+kayoanime.com##+js(nano-setInterval-booster, countdown, *, 0.02)
+kayoanime.com##+js(nano-setInterval-booster, timeleft, *, 0.02)

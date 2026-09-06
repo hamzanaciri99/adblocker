@@ -1,0 +1,44 @@
+! Title: Umbra site pack - aniwave
+! Domains rotate constantly (aniwave.to / .at / .li / .se / ...), so every rule
+! uses the entity form `aniwave.*`. The DNR compiler expands that across a TLD
+! list at build time because Chrome has no entity syntax.
+
+! Stand down from broad generic hiding here: this site runs a detector and
+! generic `.ad`-style rules would hide its bait (D1).
+@@||aniwave.*^$generichide
+
+! --- Network -------------------------------------------------------------
+||bidgear.com^$important
+||whos.amung.us^$important
+||aniwave.*/ads/*$xhr
+||aniwave.*/ajax/ads*$xhr
+
+! --- Cosmetic (specific selectors only; never `:remove()`, see D5) --------
+aniwave.*##.adx
+aniwave.*##.player-ads
+aniwave.*##.ads-wrapper
+aniwave.*##div[class^="ads-"]
+aniwave.*##.watch-ads
+aniwave.*##iframe[src*="//ads."]
+
+! --- Scriptlets ----------------------------------------------------------
+! `AaDetector` is this site's adblock detector; reading it throws inside its own
+! script and nowhere else.
+aniwave.*##+js(abort-on-property-read, AaDetector)
+! `__pf` is the "interstitial already shown" flag. Pre-setting it is quieter
+! than blocking the interstitial.
+aniwave.*##+js(set-cookie, __pf, 1)
+! Player interaction (play / pause / seek) is what triggers the pop.
+aniwave.*##+js(no-window-open-if, _blank)
+aniwave.*##+js(prevent-popunder)
+aniwave.*##+js(set-constant, adBlockDetected, false)
+aniwave.*##+js(set-constant, canRunAds, true)
+
+! --- Third-party player hosts embedded by the site ------------------------
+filemoon.*##+js(prevent-popunder)
+filemoon.*##+js(no-window-open-if, _blank)
+mp4upload.com##+js(prevent-popunder)
+mp4upload.com##+js(no-window-open-if, _blank)
+vidplay.*##+js(prevent-popunder)
+streamtape.*##+js(prevent-popunder)
+streamtape.*##+js(no-window-open-if, _blank)

@@ -1,0 +1,25 @@
+{
+  "background": {
+    "scripts": ["background/index.js"]
+  },
+  "permissions": [
+    "storage",
+    "scripting",
+    "webNavigation",
+    "tabs",
+    "webRequest",
+    "webRequestBlocking"
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "umbra@umbra.local",
+      "strict_min_version": "121.0"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["surrogates/*"],
+      "matches": ["http://*/*", "https://*/*"]
+    }
+  ]
+}

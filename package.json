@@ -1,0 +1,19 @@
+{
+  "name": "umbra-adblocker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stealth ad blocker for Chrome and Firefox",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs --target=chrome && node build.mjs --target=firefox",
+    "build:chrome": "node build.mjs --target=chrome",
+    "build:firefox": "node build.mjs --target=firefox",
+    "watch": "node build.mjs --target=chrome --watch",
+    "package": "node build.mjs --target=chrome --zip && node build.mjs --target=firefox --zip",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "engines": { "node": ">=20" }
+}

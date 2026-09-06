@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Umbra — Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <h1>Umbra</h1>
+    <p class="lede">Blocks ads, trackers and pop-unders without announcing itself to the page.</p>
+
+    <section>
+      <h2>Behaviour</h2>
+      <label class="row"><input type="checkbox" id="enabled"><span>Enabled</span></label>
+      <label class="row"><input type="checkbox" id="blockPopups"><span>Close pop-unders when a site opens one</span></label>
+      <label class="row"><input type="checkbox" id="showBadge"><span>Show the blocked count on the toolbar icon</span></label>
+    </section>
+
+    <section>
+      <h2>Sites standing down</h2>
+      <p class="hint">Umbra does nothing at all on these hostnames.</p>
+      <ul id="sites" class="sites"></ul>
+      <form id="addSite" class="add">
+        <input type="text" id="siteInput" placeholder="example.com" spellcheck="false">
+        <button type="submit">Add</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Custom filters</h2>
+      <p class="hint">
+        Adblock Plus / uBlock Origin syntax, one rule per line. Network rules apply
+        immediately on Firefox; on Chrome they take effect for cosmetic and
+        scriptlet rules only, because static network rules are compiled at build time.
+      </p>
+      <textarea id="custom" rows="12" spellcheck="false" placeholder="example.com##.ad-slot&#10;example.com##+js(set-constant, canRunAds, true)"></textarea>
+      <div class="actions">
+        <button id="save">Save and reload lists</button>
+        <span id="saveState" class="state"></span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Loaded rules</h2>
+      <dl class="stats" id="stats"></dl>
+    </section>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Umbra</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>Umbra</h1>
+    <label class="switch" title="Enable or disable Umbra everywhere">
+      <input type="checkbox" id="master">
+      <span></span>
+    </label>
+  </header>
+
+  <section class="site">
+    <div class="host" id="host">—</div>
+    <div class="count"><strong id="count">0</strong> blocked on this page</div>
+  </section>
+
+  <section class="controls">
+    <label class="row">
+      <input type="checkbox" id="siteDisabled">
+      <span>Stand down on this site</span>
+    </label>
+    <label class="row">
+      <input type="checkbox" id="blockPopups">
+      <span>Close pop-unders</span>
+    </label>
+  </section>
+
+  <section class="log">
+    <div class="log-head">Recent activity</div>
+    <ul id="entries"></ul>
+  </section>
+
+  <footer>
+    <span id="stats"></span>
+    <a href="#" id="openOptions">Settings</a>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
