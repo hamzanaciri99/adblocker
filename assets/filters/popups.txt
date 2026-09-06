@@ -3,6 +3,14 @@
 !   guard when the browser reports a new navigation target; untyped rules never
 !   match a document load, so nothing here can close an ordinary tab.
 
+! --- The general defence ---------------------------------------------------
+! No domain scope: this runs everywhere. Pop networks rotate domains faster than
+! any list can follow, so the only durable defence is behavioural. The scriptlet
+! allows same-site opens and cross-site opens that match a link the user just
+! clicked, and swallows the rest. The "Close pop-unders" switch in the toolbar
+! popup turns it off, per-site or globally.
+##+js(prevent-popunder)
+
 ! --- Pop networks: block their SDKs outright ------------------------------
 ||popads.net^$third-party
 ||popcash.net^$third-party
@@ -24,6 +32,26 @@
 ||zeydoo.com^$third-party
 ||partners.house^$third-party
 ||luckyforbet.com^$third-party
+||adnium.com^$third-party
+||adspyglass.com^$third-party
+||adsformarket.com^$third-party
+||adtrue.com^$third-party
+||bidvertiser.com^$third-party
+||clickaine.com^$third-party
+||coinzillatag.com^$third-party
+||hilltopads.com^$third-party
+||mellowads.com^$third-party
+||monetag.com^$third-party
+||nvzs.com^$third-party
+||popunder.net^$third-party
+||propellerclick.com^$third-party
+||richads.com^$third-party
+||rmbdmp.com^$third-party
+||trafficstars.com^$third-party
+||twinrdsrv.com^$third-party
+||vidoomy.com^$third-party
+||waframedia5.com^$third-party
+||yieldlab.net^$third-party
 
 ! --- Pop targets: these close the tab if one opens ------------------------
 ||popads.net^$popup
@@ -40,6 +68,13 @@
 ||galaksion.com^$popup
 ||zeydoo.com^$popup
 ||luckyforbet.com^$popup
+||monetag.com^$popup
+||popunder.net^$popup
+||propellerclick.com^$popup
+||richads.com^$popup
+||trafficstars.com^$popup
+||hilltopads.com^$popup
+||bidvertiser.com^$popup
 ! Deliberately no TLD-wide rules (`*.top`, `*.click`, ...) here. They catch a
 ! lot of pop domains, but they also close tabs the user opened on purpose, and a
 ! blocker that eats real navigations is worse than one that misses a pop. The

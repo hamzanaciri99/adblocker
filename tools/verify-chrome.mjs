@@ -31,6 +31,31 @@ const PAGE = `<!doctype html>
        deliberately inert here. -->
   <div class="below-post-ad" style="width:300px;height:250px">ad</div>
   <img id="banner" src="http://thirdparty.test:${PORT}/ads/banner1.png" width="10" height="10">
+
+  <!-- A pop-under: a click anywhere on the page opens something unrelated. -->
+  <div id="playerish" style="width:200px;height:60px;background:#eee">click me</div>
+
+  <!-- A genuine new-tab link, opened by script the way real sites do it. -->
+  <a id="reallink" href="http://thirdparty.test:${PORT}/landing" target="_blank">landing</a>
+
+  <script>
+    window.__popResult = 'not-run';
+    document.getElementById('playerish').addEventListener('click', () => {
+      const w = window.open('http://pop.example.net/lander', '_blank');
+      window.__popResult = w === null ? 'null' : 'object';
+    });
+    window.__linkResult = 'not-run';
+    document.getElementById('reallink').addEventListener('click', (e) => {
+      e.preventDefault();
+      const w = window.open(e.currentTarget.href, '_blank');
+      if (w === null) { window.__linkResult = 'null'; return; }
+      // A real cross-origin window throws on document access; the decoy does not.
+      try {
+        window.__linkResult = (w.location.href === 'about:blank' && w.document.readyState === 'complete')
+          ? 'decoy' : 'real';
+      } catch { window.__linkResult = 'real'; }
+    });
+  </script>
   <script src="http://thirdparty.test:${PORT}/pagead/js/ads.js"></script>
 </body></html>`;
 
@@ -81,6 +106,21 @@ const PROBES = () => {
   return results;
 };
 
+/**
+ * Click via raw mouse input rather than `page.click()`.
+ *
+ * Playwright's click waits for the action to "settle", which never happens on an
+ * anchor whose handler opens a window — it hangs for the full timeout. Driving
+ * the mouse directly still produces trusted events, which is the only property
+ * that matters here: the pop-under heuristic keys off `event.isTrusted`, so a
+ * synthetic `dispatchEvent` would test nothing.
+ */
+async function trustedClick(page, selector) {
+  const box = await page.locator(selector).boundingBox();
+  if (!box) throw new Error(`no bounding box for ${selector}`);
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+}
+
 async function run({ withExtension }) {
   const profile = mkdtempSync(path.join(tmpdir(), 'umbra-profile-'));
   const args = [
@@ -116,7 +156,30 @@ async function run({ withExtension }) {
     await page.goto(`http://kayoanime.com:${PORT}/`, { waitUntil: 'load', timeout: 20_000 });
     await page.waitForTimeout(1200);
 
-    return { probes: await page.evaluate(PROBES), errors };
+    const probes = await page.evaluate(PROBES);
+
+    // Snapshot here, before any click opens a second tab. That tab is served
+    // from thirdparty.test, so the ad requests it makes are first-party to it
+    // and correctly not blocked -- counting them would test the wrong thing.
+    const adRequestsOnPage = hits.filter((h) => h.includes('/ads/') || h.includes('/pagead/')).length;
+
+    // Pop-under behaviour needs *trusted* clicks, which only a real browser can
+    // produce -- page.click() dispatches one, page-authored dispatchEvent does
+    // not. This is the part no unit test can stand in for.
+    const pagesBefore = context.pages().length;
+    await trustedClick(page, '#playerish');
+    await page.waitForTimeout(700);
+    probes.popFromClickResult = await page.evaluate(() => window.__popResult);
+
+    const pagesAfterPop = context.pages().length;
+
+    // Now the legitimate case: a real click on a real link, opened by script.
+    await trustedClick(page, '#reallink');
+    await page.waitForTimeout(1200);
+    const pagesAfterLink = context.pages().length;
+    probes.linkResult = await page.evaluate(() => window.__linkResult);
+
+    return { probes, errors, adRequestsOnPage, pagesBefore, pagesAfterPop, pagesAfterLink };
   } finally {
     await context.close();
     rmSync(profile, { recursive: true, force: true });
@@ -130,17 +193,13 @@ console.log(`extension: ${EXTENSION}\n`);
 try {
   hits.length = 0;
   const off = await run({ withExtension: false });
-  const hitsOff = [...hits];
 
   hits.length = 0;
   const on = await run({ withExtension: true });
-  const hitsOn = [...hits];
-
-  const adRequests = (list) => list.filter((h) => h.includes('/ads/') || h.includes('/pagead/'));
 
   const rows = [
-    ['blocks the third-party ad image', adRequests(hitsOn).every((h) => !h.includes('/ads/banner')),
-      `off: ${adRequests(hitsOff).length} ad request(s), on: ${adRequests(hitsOn).length}`],
+    ['blocks the third-party ad requests', on.adRequestsOnPage === 0,
+      `off: ${off.adRequestsOnPage} request(s) on the page, on: ${on.adRequestsOnPage}`],
     ['blocks the third-party ad script', on.probes.adScriptRan === false,
       `off adScriptRan=${off.probes.adScriptRan}, on=${on.probes.adScriptRan}`],
     ['hides the real ad container', on.probes.adHidden === true, `display:none = ${on.probes.adHidden}`],
@@ -160,6 +219,13 @@ try {
     ['no globals on window (D12)', on.probes.globalFootprint.length === 0,
       on.probes.globalFootprint.join(', ') || 'clean'],
     ['no uncaught page errors', on.errors.length === 0, on.errors.join(' | ') || 'none'],
+
+    ['click-triggered pop opens no tab', on.pagesAfterPop === on.pagesBefore,
+      `off: ${off.pagesAfterPop - off.pagesBefore} tab(s), on: ${on.pagesAfterPop - on.pagesBefore}`],
+    ['click-triggered pop still returns an object, not null (D9)',
+      on.probes.popFromClickResult === 'object', `returned ${on.probes.popFromClickResult}`],
+    ['a real link click still opens its tab', on.pagesAfterLink > on.pagesAfterPop,
+      `on: ${on.pagesAfterLink - on.pagesAfterPop} tab | control: ${off.pagesAfterLink - off.pagesAfterPop} tab`],
   ];
 
   let failed = 0;

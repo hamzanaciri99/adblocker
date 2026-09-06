@@ -1,44 +1,53 @@
-! Title: Umbra site pack - aniwave
-! Domains rotate constantly (aniwave.to / .at / .li / .se / ...), so every rule
-! uses the entity form `aniwave.*`. The DNR compiler expands that across a TLD
-! list at build time because Chrome has no entity syntax.
+! Title: Umbra site pack - aniwave / aniwaves
+!
+! Two related-but-distinct site families, both covered here:
+!   aniwave.*   - the 9anime successor (aniwave.to / .at / .li / .se / ...)
+!   aniwaves.*  - aniwaves.ru and its siblings
+! Neither is one hostname: they rotate TLDs constantly, so every rule uses the
+! entity form. `aniwave.*` does NOT match `aniwaves.ru` -- the base label has to
+! match exactly -- which is why both are listed explicitly.
 
-! Stand down from broad generic hiding here: this site runs a detector and
-! generic `.ad`-style rules would hide its bait (D1).
+! Stand down from broad generic hiding on both: they run detectors, and generic
+! `.ad`-style rules would hide their bait elements (D1).
 @@||aniwave.*^$generichide
+@@||aniwaves.*^$generichide
 
 ! --- Network -------------------------------------------------------------
 ||bidgear.com^$important
 ||whos.amung.us^$important
 ||aniwave.*/ads/*$xhr
 ||aniwave.*/ajax/ads*$xhr
+||aniwaves.*/ads/*$xhr
+||aniwaves.*/ajax/ads*$xhr
 
 ! --- Cosmetic (specific selectors only; never `:remove()`, see D5) --------
-aniwave.*##.adx
-aniwave.*##.player-ads
-aniwave.*##.ads-wrapper
-aniwave.*##div[class^="ads-"]
-aniwave.*##.watch-ads
-aniwave.*##iframe[src*="//ads."]
+aniwave.*,aniwaves.*##.adx
+aniwave.*,aniwaves.*##.player-ads
+aniwave.*,aniwaves.*##.ads-wrapper
+aniwave.*,aniwaves.*##div[class^="ads-"]
+aniwave.*,aniwaves.*##.watch-ads
+aniwave.*,aniwaves.*##iframe[src*="//ads."]
+aniwave.*,aniwaves.*##.video-ads
+aniwave.*,aniwaves.*##.overlay-ads
 
 ! --- Scriptlets ----------------------------------------------------------
-! `AaDetector` is this site's adblock detector; reading it throws inside its own
-! script and nowhere else.
-aniwave.*##+js(abort-on-property-read, AaDetector)
+! `AaDetector` is the adblock detector on this family; reading it throws inside
+! its own script and nowhere else.
+aniwave.*,aniwaves.*##+js(abort-on-property-read, AaDetector)
 ! `__pf` is the "interstitial already shown" flag. Pre-setting it is quieter
 ! than blocking the interstitial.
-aniwave.*##+js(set-cookie, __pf, 1)
+aniwave.*,aniwaves.*##+js(set-cookie, __pf, 1)
 ! Player interaction (play / pause / seek) is what triggers the pop.
-aniwave.*##+js(no-window-open-if, _blank)
-aniwave.*##+js(prevent-popunder)
-aniwave.*##+js(set-constant, adBlockDetected, false)
-aniwave.*##+js(set-constant, canRunAds, true)
+aniwave.*,aniwaves.*##+js(no-window-open-if, _blank)
+aniwave.*,aniwaves.*##+js(set-constant, adBlockDetected, false)
+aniwave.*,aniwaves.*##+js(set-constant, canRunAds, true)
+aniwave.*,aniwaves.*##+js(set-constant, adsbygoogle.loaded, true)
 
-! --- Third-party player hosts embedded by the site ------------------------
-filemoon.*##+js(prevent-popunder)
-filemoon.*##+js(no-window-open-if, _blank)
-mp4upload.com##+js(prevent-popunder)
-mp4upload.com##+js(no-window-open-if, _blank)
-vidplay.*##+js(prevent-popunder)
-streamtape.*##+js(prevent-popunder)
-streamtape.*##+js(no-window-open-if, _blank)
+! --- Third-party player hosts these sites embed ---------------------------
+! Pop-unders on streaming sites usually fire from inside the player iframe, not
+! the page around it, so the player hosts need covering in their own right.
+!
+! One rule with a shared domain list rather than one rule per host: the build
+! groups scriptlet rules by their domain set and emits a bundle per group, so
+! thirteen separate rules meant thirteen copies of the same code in the package.
+filemoon.*,mp4upload.com,vidplay.*,streamtape.*,streamwish.*,dood.*,doodstream.com,vidhide.*,filelions.*,mixdrop.*,upstream.to,vidmoly.*,megaup.*,streamruby.*,vembed.*,mp4play.*##+js(no-window-open-if, _blank)

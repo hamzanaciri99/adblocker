@@ -60,7 +60,11 @@ export async function registerScriptletPacks() {
     return entry;
   };
 
-  const toRegister = packs.map((pack) => spec(pack, pack.main, 'MAIN'));
+  // The pop-under guard is behavioural rather than list-driven, so it is the one
+  // pack the user can switch off on its own.
+  const active = packs.filter((pack) => !pack.popupGuard || settings.blockPopups);
+
+  const toRegister = active.map((pack) => spec(pack, pack.main, 'MAIN'));
 
   try {
     await api.scripting.registerContentScripts(toRegister);
@@ -69,7 +73,7 @@ export async function registerScriptletPacks() {
     // isolated wrapper, which appends the same code as a `<script>` element and
     // removes the node in the same tick.
     mainWorldAvailable = false;
-    const fallback = packs.map((pack) => spec(pack, pack.iso, null));
+    const fallback = active.map((pack) => spec(pack, pack.iso, null));
     try { await api.scripting.registerContentScripts(fallback); } catch { /* give up quietly */ }
   }
 }

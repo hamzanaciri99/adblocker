@@ -9,10 +9,10 @@
 // for popups (`$popup`, `$document`, `$all`) can ever close a tab.
 
 import { api } from '../shared/browser.js';
-import { T } from '../core/types.js';
 import { engine } from './engine.js';
 import { isDisabledFor, getSettings, recordBlock } from './state.js';
 import { hostnameOf } from '../core/domains.js';
+import { shouldClosePopup } from '../core/popup-decision.js';
 
 export function installPopupGuard() {
   if (!api.webNavigation?.onCreatedNavigationTarget) return;
@@ -31,12 +31,12 @@ async function onCreatedNavigationTarget(details) {
   const sourceHostname = hostnameOf(sourceUrl);
   if (isDisabledFor(sourceHostname)) return;
 
-  const verdict = engine.match({
-    url: details.url,
-    documentUrl: sourceUrl,
-    type: T.main_frame,
-  });
-  if (!verdict || verdict.action === 'allow') return;
+  const verdict = shouldClosePopup(
+    (url, documentUrl, type) => engine.match({ url, documentUrl, type }),
+    details.url,
+    sourceUrl,
+  );
+  if (!verdict) return;
 
   try {
     await api.tabs.remove(details.tabId);

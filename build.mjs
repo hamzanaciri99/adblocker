@@ -184,6 +184,11 @@ async function buildScriptletPacks(lists) {
       main: mainFile,
       iso: isoFile,
     };
+    // Flag the pack that exists purely to defuse pop-unders, so the injector can
+    // withhold it when the user turns "Close pop-unders" off.
+    if (group.invocations.every(([name]) => name === 'prevent-popunder')) {
+      entry.popupGuard = true;
+    }
     // Only set exclusions when there are any: an empty list must not become
     // "exclude everything", which would silently disable the pack.
     if (group.excludeDomains.length) {

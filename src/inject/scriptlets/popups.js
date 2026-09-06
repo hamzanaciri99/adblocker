@@ -25,6 +25,8 @@ export function makeDecoyWindow() {
     innerWidth: 0, innerHeight: 0, outerWidth: 0, outerHeight: 0,
     screenX: 0, screenY: 0,
     document: doc,
+    // Assigning `location` or `location.href` on the decoy navigates nothing,
+    // which is what defuses the open-blank-then-redirect pattern.
     location: { href: 'about:blank', assign: noop, replace: noop, reload: noop, toString: () => 'about:blank' },
     focus: noop, blur: noop, print: noop, alert: noop, stop: noop,
     postMessage: noop, scroll: noop, scrollTo: noop, scrollBy: noop,
@@ -55,6 +57,13 @@ function registrableDomain(hostname) {
   return parts.length <= 2 ? hostname : parts.slice(-2).join('.');
 }
 
+function sameSite(a, b) {
+  try {
+    return registrableDomain(new URL(a, location.href).hostname) ===
+           registrableDomain(new URL(b, location.href).hostname);
+  } catch { return false; }
+}
+
 function isCrossSite(url) {
   try {
     const target = new URL(url, location.href);
@@ -63,24 +72,73 @@ function isCrossSite(url) {
   } catch { return false; }
 }
 
+// The last real user click, and the link it landed on if there was one.
+const GESTURE_WINDOW_MS = 1500;
+let lastGesture = { at: 0, href: null };
+
+function watchGestures() {
+  const record = (event) => {
+    if (!event.isTrusted) return;
+    let href = null;
+    try {
+      const anchor = event.target?.closest?.('a[href]');
+      href = anchor ? anchor.href : null;
+    } catch { /* target is not an Element */ }
+    lastGesture = { at: Date.now(), href };
+  };
+  // Capture phase, so the record happens before the page's own handler runs and
+  // calls window.open from inside it.
+  for (const type of ['pointerdown', 'mousedown', 'click', 'auxclick', 'keydown']) {
+    window.addEventListener(type, record, true);
+  }
+}
+
 /**
- * `prevent-popunder()` — heuristic guard for sites whose pop domain rotates
- * faster than any filter list can follow.
+ * Was this `window.open` plausibly what the user asked for?
  *
- * Two behaviours cover almost every pop SDK: opening a cross-site URL from a
- * click handler, and appending a `target="_blank"` anchor to the document and
- * clicking it programmatically. Same-site `window.open` is left alone, so a
- * site's own "open in new tab" links keep working.
+ * A pop-under works by hijacking whatever the user clicks, so "there was a user
+ * gesture" proves nothing — the gesture is the trigger. What does discriminate
+ * is *correlation*: a genuine new-tab open goes to the link the user clicked. An
+ * ad opens somewhere unrelated to anything on the page.
+ */
+function userAskedForThis(url) {
+  const fresh = Date.now() - lastGesture.at < GESTURE_WINDOW_MS;
+  if (!fresh || !lastGesture.href) return false;
+  return sameSite(url, lastGesture.href);
+}
+
+/**
+ * `prevent-popunder()` — the general defence, for the case no filter list can
+ * win: pop domains that rotate faster than anyone can list them.
+ *
+ * Same-site opens are always allowed, so a site's own "open in new tab" keeps
+ * working. Cross-site opens are allowed only when they match a link the user
+ * just clicked. Everything else gets a decoy.
+ *
+ * This is deliberately aggressive — it will also swallow a cross-site share or
+ * OAuth pop-up opened from a button rather than a link. That is the trade the
+ * per-site switch in the toolbar popup exists to reverse.
  */
 export function preventPopunder() {
   safely(() => {
+    watchGestures();
+
     replaceMethod(window, 'open', (original) => function (url, target, features) {
-      if (url && isCrossSite(url)) return makeDecoyWindow();
-      return original.call(this, url, target, features);
+      // `window.open()` with no URL is the open-blank-then-redirect pattern;
+      // treat it as a pop unless a click on a real link explains it.
+      const requested = url ?? '';
+      const blank = requested === '' || /^about:blank$/i.test(requested);
+
+      if (!blank && !isCrossSite(requested)) return original.call(this, url, target, features);
+      if (userAskedForThis(blank ? (lastGesture.href ?? '') : requested)) {
+        return original.call(this, url, target, features);
+      }
+      return makeDecoyWindow();
     });
 
-    // Programmatic clicks on injected `_blank` anchors. A real user click
-    // carries `isTrusted`, which a synthetic one cannot forge.
+    // A `target="_blank"` anchor appended to the document and clicked from
+    // script. A programmatic `.click()` is never trusted, so this cannot catch a
+    // real user click by accident.
     replaceMethod(HTMLElement.prototype, 'click', (original) => function () {
       if (this instanceof HTMLAnchorElement &&
           this.target === '_blank' &&
