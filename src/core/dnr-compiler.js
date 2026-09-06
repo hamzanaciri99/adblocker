@@ -14,13 +14,18 @@ import { resolveSurrogate } from '../shared/surrogates.js';
  * be encoded as explicit numbers rather than left to evaluation order.
  */
 export const PRIORITY = Object.freeze({
-  genericBlock: 1,
-  domainBlock: 10,
-  redirect: 20,
-  exception: 30,
-  important: 40,
-  importantException: 45,
-  userAllow: 50,
+  // `$removeparam` sits at the bottom on purpose. It matches broadly -- a
+  // list-wide `$removeparam=utm_source` has no URL filter at all -- and DNR
+  // resolves conflicts by priority alone, so anything above a block rule would
+  // shadow every block in the ruleset.
+  removeParam: 1,
+  genericBlock: 10,
+  domainBlock: 20,
+  redirect: 30,
+  exception: 40,
+  important: 50,
+  importantException: 55,
+  userAllow: 60,
 });
 
 // RE2 (which DNR uses) has no lookaround and no backreferences.
@@ -91,7 +96,8 @@ function unsupportedReason(rule) {
 function priorityFor(rule) {
   if (rule.isImportant) return rule.isException ? PRIORITY.importantException : PRIORITY.important;
   if (rule.isException) return PRIORITY.exception;
-  if (rule.redirect || rule.removeParams) return PRIORITY.redirect;
+  if (rule.redirect) return PRIORITY.redirect;
+  if (rule.removeParams) return PRIORITY.removeParam;
   return rule.includeDomains.length ? PRIORITY.domainBlock : PRIORITY.genericBlock;
 }
 

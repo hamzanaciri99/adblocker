@@ -10,10 +10,17 @@
     "build:firefox": "node build.mjs --target=firefox",
     "watch": "node build.mjs --target=chrome --watch",
     "package": "node build.mjs --target=chrome --zip && node build.mjs --target=firefox --zip",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "verify:chrome": "node build.mjs --target=chrome && node tools/verify-chrome.mjs",
+    "lint:firefox": "node build.mjs --target=firefox && web-ext lint --source-dir dist/firefox",
+    "check": "npm test && npm run lint:firefox"
   },
   "devDependencies": {
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "playwright-core": "^1.63.0",
+    "web-ext": "^10.6.0"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }

@@ -6,6 +6,7 @@
 
 import { api } from '../shared/browser.js';
 import { getSettings, recordBlock } from './state.js';
+import { PRIORITY } from '../core/dnr-compiler.js';
 
 const SESSION_RULE_BASE = 1_000_000;
 
@@ -55,7 +56,7 @@ function allowAllRule(id, site) {
   };
   if (site) condition.requestDomains = [site];
   else condition.urlFilter = '*';
-  return { id, priority: 50, action: { type: 'allowAllRequests' }, condition };
+  return { id, priority: PRIORITY.userAllow, action: { type: 'allowAllRequests' }, condition };
 }
 
 /** Toggle a compiled ruleset (a site pack) on or off. */

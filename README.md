@@ -49,14 +49,45 @@ exists so the gap is visible rather than silent.
 **Chrome** — `chrome://extensions` → enable *Developer mode* → *Load unpacked* →
 select `dist/chrome`.
 
-**Firefox** — `about:debugging#/runtime/this-firefox` → *Load Temporary Add-on*
-→ select `dist/firefox/manifest.json`. For a permanent install the `.xpi` needs
-signing through [addons.mozilla.org](https://addons.mozilla.org/developers/).
+**Firefox 142+** — `about:debugging#/runtime/this-firefox` → *Load Temporary
+Add-on* → select `dist/firefox/manifest.json`. For a permanent install the
+`.xpi` needs signing through
+[addons.mozilla.org](https://addons.mozilla.org/developers/).
 
-## Verifying the stealth claims
+## Verifying it works
+
+Three layers, in increasing order of how much they prove.
+
+```bash
+npm test              # 105 unit + integration tests, incl. the built artifacts
+npm run lint:firefox  # Mozilla's own validator against dist/firefox
+npm run verify:chrome # loads the extension in real Chromium against a mock site
+```
+
+`verify:chrome` is the one that matters. It starts a local server standing in for
+an ad-supported site, points Chromium's host resolver at it so the **kayoanime**
+pack activates exactly as it would in the wild, loads the built extension, and
+then runs the probes a detector would:
+
+```
+PASS  blocks the third-party ad image                  off: 2 ad request(s), on: 0
+PASS  blocks the third-party ad script                 off adScriptRan=true, on=false
+PASS  hides the real ad container                      display:none = true
+PASS  leaves the bait element visible (D1)             off=true, on=true
+PASS  hiding rules absent from document.styleSheets (D8) leak = false
+PASS  site pack defines google_ad_status (D3)          google_ad_status = 1
+PASS  window.open still reports [native code] (D10)    name="open" native=true
+PASS  cross-site pop returns a decoy, not null (D9)    notNull=true closed=true
+PASS  no extension URL or marker in the DOM (D12)      footprint = false
+```
+
+On a headless machine, wrap it: `xvfb-run -a npm run verify:chrome` — Chromium
+will not load extensions in true headless mode.
+
+### On a live site
 
 Paste [`tools/self-test.js`](tools/self-test.js) into the DevTools console on any
-page. It runs the same probes an anti-adblock script would and prints a table:
+page. It runs the same probes and prints a table:
 
 ```
 D1   bait element still has geometry          PASS   offsetHeight=250 display=block

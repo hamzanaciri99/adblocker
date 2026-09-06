@@ -36,6 +36,18 @@ test('the priority ladder encodes Adblock precedence', () => {
   assert.ok(PRIORITY.important > PRIORITY.exception);
 });
 
+test('$removeparam ranks below every block rule', () => {
+  // Regression: a list-wide `$removeparam=utm_source` compiles to a rule with no
+  // URL filter, so at redirect priority it matched everything and shadowed the
+  // entire ruleset -- nothing was blocked at all.
+  const { rules } = compile(['$removeparam=utm_source', '||ads.example.com^']);
+  const removeParam = rules.find((r) => r.action.redirect?.transform);
+  const block = rules.find((r) => r.action.type === 'block');
+  assert.ok(removeParam.priority < block.priority,
+    'a broad removeparam rule must never outrank a block');
+  assert.equal(removeParam.priority, PRIORITY.removeParam);
+});
+
 test('$redirect points at a packaged surrogate', () => {
   const { rules } = compile(['||g.com/ads.js$script,redirect=googlesyndication_adsbygoogle.js']);
   assert.equal(rules[0].action.type, 'redirect');

@@ -1,7 +1,7 @@
 # Umbra — a stealth ad blocker for Chrome and Firefox
 
 **Status:** design / implementation plan
-**Targets:** Chromium 120+ (MV3), Firefox 121+ (MV3 with blocking `webRequest`)
+**Targets:** Chromium 120+ (MV3), Firefox 142+ (MV3 with blocking `webRequest`)
 **Primary goal:** block ads and pop-unders everywhere, while being *invisible to
 the page*, with hardened site packs for `kayoanime.com` and the `aniwave.*`
 family.
@@ -530,7 +530,11 @@ patch:
   `web_accessible_resources[].use_dynamic_url = true`, `minimum_chrome_version`.
 - **Firefox**: `background.scripts` (event page — service workers are still the
   rough edge on Gecko), `permissions += ["webRequest","webRequestBlocking"]`,
-  `browser_specific_settings.gecko.id` + `strict_min_version`.
+  `browser_specific_settings.gecko.id` + `strict_min_version`, and
+  `data_collection_permissions: {required: ["none"]}` — Umbra collects nothing,
+  and AMO requires new listings to say so explicitly. That key is what sets the
+  142 floor; it also happens to guarantee native MAIN-world content scripts
+  (Firefox 128+), so route 3 below is pure insurance rather than a live path.
 
 ---
 
