@@ -35,6 +35,10 @@ const PAGE = `<!doctype html>
   <!-- A pop-under: a click anywhere on the page opens something unrelated. -->
   <div id="playerish" style="width:200px;height:60px;background:#eee">click me</div>
 
+  <!-- The other two ways a pop SDK opens a tab without calling window.open. -->
+  <div id="popdispatch" style="width:200px;height:40px;background:#ddd">dispatch</div>
+  <div id="popform" style="width:200px;height:40px;background:#ccc">form</div>
+
   <!-- A genuine new-tab link, opened by script the way real sites do it. -->
   <a id="reallink" href="http://thirdparty.test:${PORT}/landing" target="_blank">landing</a>
 
@@ -45,6 +49,21 @@ const PAGE = `<!doctype html>
       window.__popResult = w === null ? 'null' : 'object';
     });
     window.__linkResult = 'not-run';
+    document.getElementById('popdispatch').addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = 'http://pop.example.net/via-dispatch';
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+    });
+    document.getElementById('popform').addEventListener('click', () => {
+      const f = document.createElement('form');
+      f.method = 'GET';
+      f.action = 'http://pop.example.net/via-form';
+      f.target = '_blank';
+      document.body.appendChild(f);
+      f.submit();
+    });
     document.getElementById('reallink').addEventListener('click', (e) => {
       e.preventDefault();
       const w = window.open(e.currentTarget.href, '_blank');
@@ -87,7 +106,28 @@ const PROBES = () => {
     } catch { return false; }
   });
 
-  results.openNative = /\[native code\]/.test(Function.prototype.toString.call(window.open));
+  // Every builtin the scriptlets replace has to survive the one-line tamper
+  // check, not just window.open — a patch that forgets to spoof its source is
+  // as good as a banner announcing the extension (D10).
+  const suspects = [
+    ['window.open', window.open],
+    ['EventTarget.dispatchEvent', EventTarget.prototype.dispatchEvent],
+    ['HTMLElement.click', HTMLElement.prototype.click],
+    ['HTMLFormElement.submit', HTMLFormElement.prototype.submit],
+    ['EventTarget.addEventListener', EventTarget.prototype.addEventListener],
+    ['setTimeout', window.setTimeout],
+    ['setInterval', window.setInterval],
+    ['fetch', window.fetch],
+    ['JSON.parse', JSON.parse],
+  ];
+  results.tampered = suspects
+    .filter(([, fn]) => {
+      try { return !/\[native code\]/.test(Function.prototype.toString.call(fn)); }
+      catch { return true; }
+    })
+    .map(([name]) => name);
+  results.suspectCount = suspects.length;
+  results.openNative = results.tampered.length === 0;
   results.openName = window.open.name;
 
   let popped = null;
@@ -173,13 +213,25 @@ async function run({ withExtension }) {
 
     const pagesAfterPop = context.pages().length;
 
+    // The same pop, reached without touching window.open at all.
+    await trustedClick(page, '#popdispatch');
+    await page.waitForTimeout(700);
+    const pagesAfterDispatch = context.pages().length;
+
+    await trustedClick(page, '#popform');
+    await page.waitForTimeout(700);
+    const pagesAfterForm = context.pages().length;
+
     // Now the legitimate case: a real click on a real link, opened by script.
     await trustedClick(page, '#reallink');
     await page.waitForTimeout(1200);
     const pagesAfterLink = context.pages().length;
     probes.linkResult = await page.evaluate(() => window.__linkResult);
 
-    return { probes, errors, adRequestsOnPage, pagesBefore, pagesAfterPop, pagesAfterLink };
+    return {
+      probes, errors, adRequestsOnPage,
+      pagesBefore, pagesAfterPop, pagesAfterDispatch, pagesAfterForm, pagesAfterLink,
+    };
   } finally {
     await context.close();
     rmSync(profile, { recursive: true, force: true });
@@ -210,8 +262,10 @@ try {
     ['site pack defines google_ad_status (D3)', on.probes.googleAdStatus === 1,
       `google_ad_status = ${on.probes.googleAdStatus}`],
     ['site pack defines canRunAds (D3)', on.probes.canRunAds === true, `canRunAds = ${on.probes.canRunAds}`],
-    ['window.open still reports [native code] (D10)', on.probes.openNative === true,
-      `name="${on.probes.openName}" native=${on.probes.openNative}`],
+    ['every patched builtin reports [native code] (D10)', on.probes.tampered.length === 0,
+      on.probes.tampered.length
+        ? `visible: ${on.probes.tampered.join(', ')}`
+        : `all ${on.probes.suspectCount} clean, window.open still named "${on.probes.openName}"`],
     ['cross-site pop returns a decoy, not null (D9)', on.probes.popNotNull === true && on.probes.popClosedFalse === true,
       `notNull=${on.probes.popNotNull} closed=${on.probes.popClosedFalse}`],
     ['no extension URL or marker in the DOM (D12)', on.probes.domFootprint === false,
@@ -224,8 +278,12 @@ try {
       `off: ${off.pagesAfterPop - off.pagesBefore} tab(s), on: ${on.pagesAfterPop - on.pagesBefore}`],
     ['click-triggered pop still returns an object, not null (D9)',
       on.probes.popFromClickResult === 'object', `returned ${on.probes.popFromClickResult}`],
-    ['a real link click still opens its tab', on.pagesAfterLink > on.pagesAfterPop,
-      `on: ${on.pagesAfterLink - on.pagesAfterPop} tab | control: ${off.pagesAfterLink - off.pagesAfterPop} tab`],
+    ['synthesized anchor click opens no tab', on.pagesAfterDispatch === on.pagesAfterPop,
+      `off: ${off.pagesAfterDispatch - off.pagesAfterPop} tab(s), on: ${on.pagesAfterDispatch - on.pagesAfterPop}`],
+    ['form target=_blank submit opens no tab', on.pagesAfterForm === on.pagesAfterDispatch,
+      `off: ${off.pagesAfterForm - off.pagesAfterDispatch} tab(s), on: ${on.pagesAfterForm - on.pagesAfterDispatch}`],
+    ['a real link click still opens its tab', on.pagesAfterLink > on.pagesAfterForm,
+      `on: ${on.pagesAfterLink - on.pagesAfterForm} tab | control: ${off.pagesAfterLink - off.pagesAfterForm} tab`],
   ];
 
   let failed = 0;

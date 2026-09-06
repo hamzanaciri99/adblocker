@@ -96,15 +96,17 @@
       ['fetch', window.fetch],
       ['setTimeout', window.setTimeout],
       ['EventTarget.addEventListener', EventTarget.prototype.addEventListener],
+      ['EventTarget.dispatchEvent', EventTarget.prototype.dispatchEvent],
       ['JSON.parse', JSON.parse],
       ['HTMLElement.click', HTMLElement.prototype.click],
+      ['HTMLFormElement.submit', HTMLFormElement.prototype.submit],
     ];
     const patched = suspects.filter(([, fn]) => {
       try { return !/\[native code\]/.test(Function.prototype.toString.call(fn)); }
       catch { return true; }
     });
     record('D10', 'patched builtins still report [native code]', patched.length === 0,
-      patched.length ? `visible: ${patched.map(([n]) => n).join(', ')}` : 'all six clean');
+      patched.length ? `visible: ${patched.map(([n]) => n).join(', ')}` : `all ${suspects.length} clean`);
   }
 
   // D7/D12 - extension footprint in the DOM -----------------------------------

@@ -376,6 +376,21 @@ The click is recorded from a **capture-phase** listener on `window`, so it lands
 before the page's own handler runs and calls `open()`, and only for
 `event.isTrusted` events — a programmatic `.click()` cannot forge one.
 
+`window.open` is not the only way to reach a new tab, and closing one vector
+only moves the SDK to the next. All three are covered:
+
+| Vector | Guard |
+|---|---|
+| `window.open(url, '_blank')` | correlation rule above; decoy on failure |
+| `anchor.click()` on an injected `target="_blank"` link | `HTMLElement.prototype.click` |
+| `anchor.dispatchEvent(new MouseEvent('click'))` | `EventTarget.prototype.dispatchEvent`, gated on `isTrusted === false` |
+| `<form target="_blank">.submit()` | `HTMLFormElement.prototype.submit` |
+
+The last two are only ever synthetic — a page cannot forge `isTrusted`, and a
+real form submission by the user does not go through `.submit()` — so neither
+guard can catch a genuine user action. Every one of these patches goes through
+`wrapNative()`, so the tamper check in §2 D10 covers nine builtins, not one.
+
 This is deliberately aggressive: it also swallows a cross-site share or OAuth
 pop-up opened from a *button* rather than a link. That trade is why the toolbar
 popup carries a switch for it, per-site and globally.

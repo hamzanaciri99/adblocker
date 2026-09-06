@@ -137,15 +137,43 @@ export function preventPopunder() {
     });
 
     // A `target="_blank"` anchor appended to the document and clicked from
-    // script. A programmatic `.click()` is never trusted, so this cannot catch a
-    // real user click by accident.
+    // script. Three ways in, all of which have to be covered — closing only the
+    // first just moves the SDK to one of the others.
+
+    // 1. element.click()
     replaceMethod(HTMLElement.prototype, 'click', (original) => function () {
-      if (this instanceof HTMLAnchorElement &&
-          this.target === '_blank' &&
-          isCrossSite(this.href)) {
-        return undefined;
-      }
+      if (isSyntheticPopAnchor(this)) return undefined;
+      return original.call(this);
+    });
+
+    // 2. element.dispatchEvent(new MouseEvent('click'))
+    //
+    // A synthesized event always reports `isTrusted === false`, and the page
+    // cannot forge that, so a real user click can never be caught here. The
+    // check is ordered cheapest-first because this method is hot.
+    replaceMethod(EventTarget.prototype, 'dispatchEvent', (original) => function (event) {
+      try {
+        if (event && event.type === 'click' && event.isTrusted === false &&
+            isSyntheticPopAnchor(this)) {
+          return true;   // "not cancelled", which is what a real dispatch returns
+        }
+      } catch { /* exotic target; fall through */ }
+      return original.call(this, event);
+    });
+
+    // 3. <form target="_blank"> submitted from script
+    replaceMethod(HTMLFormElement.prototype, 'submit', (original) => function () {
+      try {
+        if (this.target === '_blank' && isCrossSite(this.action)) return undefined;
+      } catch { /* fall through */ }
       return original.call(this);
     });
   });
+}
+
+/** A cross-site `target="_blank"` anchor — the shape every pop SDK injects. */
+function isSyntheticPopAnchor(node) {
+  return node instanceof HTMLAnchorElement &&
+         node.target === '_blank' &&
+         isCrossSite(node.href);
 }
