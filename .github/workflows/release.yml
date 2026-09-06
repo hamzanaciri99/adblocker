@@ -49,6 +49,9 @@ jobs:
           tag_name: ${{ inputs.tag || github.ref_name }}
           name: Umbra ${{ inputs.tag || github.ref_name }}
           body_path: .github/RELEASE_NOTES.md
+          # Appends the commits since the previous tag, so each release says what
+          # actually changed instead of repeating the same standing text.
+          generate_release_notes: true
           files: |
             dist/umbra-chrome-*.zip
             dist/umbra-firefox-*.xpi
