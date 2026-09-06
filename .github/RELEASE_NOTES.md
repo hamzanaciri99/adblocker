@@ -21,8 +21,17 @@ signing through addons.mozilla.org.
 
 ## What's in it
 
-Generic ad, tracker and pop-under blocking on every site, plus tuned packs for
-`kayoanime.com` and the `aniwave.*` family.
+Generic ad, tracker and pop-under blocking on **every site** — that is the bulk
+of it. Site packs add tuning on top for `kayoanime.com`, the `aniwave.*` family
+and `aniwaves.*` (different sites: the entity form matches the base label
+exactly), plus the player hosts those sites embed, since pop-unders on streaming
+sites usually fire from inside the player iframe rather than the page around it.
+
+The pop-under guard is behavioural rather than list-driven, because pop networks
+rotate domains faster than any list can follow. It allows same-site opens and
+cross-site opens that match a link you just clicked, and swallows the rest — so
+it will also swallow a cross-site share or login pop-up opened from a button.
+The toolbar popup has a switch for it, per-site and globally.
 
 The point of difference is the anti-detection work. Blocking is easy; staying
 invisible while you do it is not. Umbra serves neutered stubs instead of failing
