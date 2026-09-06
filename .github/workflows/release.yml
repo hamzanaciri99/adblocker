@@ -1,0 +1,46 @@
+# Build and publish a downloadable release.
+#
+# Triggered by pushing a tag like `v0.1.0`, or manually from the Actions tab.
+# The zip it attaches is built here rather than uploaded by hand, so what people
+# download is always what the tagged source produces.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Package first: the integration suite loads the built artifacts, and
+      # skips itself if they are missing rather than failing loudly.
+      - run: npm run package
+
+      - run: npm test
+
+      - name: Check the Firefox build against Mozilla's validator
+        run: npx web-ext lint --source-dir dist/firefox
+
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Umbra ${{ github.ref_name }}
+          body_path: .github/RELEASE_NOTES.md
+          files: |
+            dist/umbra-chrome-*.zip
+            dist/umbra-firefox-*.xpi

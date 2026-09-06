@@ -308,15 +308,65 @@ function printReport(report, lists, packs) {
 }
 
 async function packageBuild() {
+  const { version } = JSON.parse(await readFile('manifest.base.json', 'utf8'));
   const ext = target === 'firefox' ? 'xpi' : 'zip';
-  const out = path.resolve('dist', `umbra-${target}.${ext}`);
+  const stem = `umbra-${target}-${version}`;
+  const out = path.resolve('dist', `${stem}.${ext}`);
+  const staging = path.resolve('dist', stem);
+
   await rm(out, { force: true });
+  await rm(staging, { recursive: true, force: true });
+
+  // Stage under a named folder so the archive expands to `umbra-chrome-0.1.0/`
+  // rather than scattering manifest.json and friends into whatever directory the
+  // user happened to unzip in. "Load unpacked" wants a folder to point at.
+  await cp(OUT, staging, { recursive: true });
+  await writeFile(path.join(staging, 'INSTALL.txt'), installNotes(version));
+
   try {
-    await execFileAsync('zip', ['-qr', out, '.'], { cwd: OUT });
-    console.log(`packaged ${path.relative(process.cwd(), out)}`);
+    await execFileAsync('zip', ['-qr', out, stem], { cwd: path.resolve('dist') });
+    console.log(`packaged dist/${stem}.${ext}`);
   } catch {
     console.warn('`zip` not available; skipping package step');
+  } finally {
+    await rm(staging, { recursive: true, force: true });
   }
+}
+
+function installNotes(version) {
+  return `Umbra ${version} - ${target}
+
+Chrome / Edge / Brave / any Chromium browser
+--------------------------------------------
+Chrome cannot install an extension straight from a .zip, and it refuses
+unsigned .crx files outright, so loading the unpacked folder is the only
+route outside the Web Store. It takes about twenty seconds:
+
+  1. Unzip this archive. You should have a folder named
+     umbra-${target}-${version} containing manifest.json.
+     Keep it somewhere permanent - Chrome reads from this folder on every
+     start, so deleting or moving it uninstalls the extension.
+  2. Open  chrome://extensions
+  3. Turn on "Developer mode" (top right).
+  4. Click "Load unpacked" and select the folder from step 1.
+
+Umbra's icon appears in the toolbar. Click it for the per-site switch and
+a log of what was blocked on the current page.
+
+Chrome will show a "Disable developer mode extensions" nag on some
+restarts. That is Chrome's warning about unpacked extensions in general,
+not about this one; dismissing it is safe and it does not disable Umbra.
+
+Checking it works
+-----------------
+Open any ad-supported page, then paste tools/self-test.js from the
+repository into the DevTools console. It runs the probes an anti-adblock
+script would run and prints a pass/fail table.
+
+Source and documentation
+------------------------
+https://github.com/hamzanaciri99/adblocker
+`;
 }
 
 await main();

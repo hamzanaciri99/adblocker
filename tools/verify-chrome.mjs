@@ -13,9 +13,11 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
-const EXTENSION = path.resolve('dist/chrome');
-const PORT = 8099;
+const CHROME = process.env.UMBRA_CHROME ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+// Defaults to the build directory; point it at an unpacked release to verify the
+// artifact a user actually downloads rather than the one the build just wrote.
+const EXTENSION = path.resolve(process.env.UMBRA_EXTENSION ?? 'dist/chrome');
+const PORT = Number(process.env.UMBRA_PORT ?? 8099);
 
 const hits = [];
 
@@ -122,6 +124,8 @@ async function run({ withExtension }) {
 }
 
 await new Promise((resolve) => server.listen(PORT, '127.0.0.1', resolve));
+
+console.log(`extension: ${EXTENSION}\n`);
 
 try {
   hits.length = 0;
