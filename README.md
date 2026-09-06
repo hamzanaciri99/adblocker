@@ -24,10 +24,17 @@ each, and the architecture that follows from them.
 | Surrogates | neutered stubs served in place of ad scripts, so probes succeed instead of failing |
 | Pop-unders | decoy `Window` objects, cross-site `window.open` defusal, and a browser-level new-tab guard |
 
-Site packs ship for **kayoanime.com** and the **aniwave.\*** family, which are
-the two sites this was built for. Both rotate domains and run detectors; the
-packs are plain filter-list text, so keeping them current is an edit, not a
-rebuild.
+Everything above is global. Site packs add tuning on top for **kayoanime.com**,
+the **aniwave.\*** family and **aniwaves.\*** (they are different sites — the
+entity form matches the base label exactly), plus the player hosts those sites
+embed, since pop-unders on streaming sites usually fire from inside the player
+iframe rather than the page around it.
+
+The pop-under guard is behavioural rather than list-driven, because pop networks
+rotate domains faster than any list can follow. It allows same-site opens and
+cross-site opens that match a link you just clicked, and swallows the rest — so
+it will also swallow a cross-site share or login pop-up opened from a button.
+The toolbar popup has a switch for it, per-site and globally.
 
 ## Build
 

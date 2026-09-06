@@ -355,6 +355,41 @@ plain object exposing `closed:false`, `focus/blur/close/postMessage` no-ops, a
 `document` stub with `write/open/close`, and a `location` object whose `href`
 setter is ignored. The site's check passes, and nothing opens.
 
+**Deciding *which* opens to swallow.** Filter lists cannot win this one — pop
+networks rotate domains faster than anyone can list them — so the general guard
+(`prevent-popunder`, active on every site) has to judge behaviourally. The
+tempting test is "was there a user gesture?", and it is worthless: hijacking the
+user's click *is* how a pop-under works, so the gesture is always present.
+
+What does discriminate is **correlation**. A genuine new-tab open goes to the
+link the user just clicked; an ad opens somewhere unrelated to anything on the
+page. So the rule is:
+
+| Open | Verdict |
+|---|---|
+| same-site | allowed — a site's own new-tab links keep working |
+| cross-site, matching a link clicked in the last 1.5s | allowed |
+| cross-site, uncorrelated | decoy |
+| `window.open()` with no URL, uncorrelated | decoy (the open-blank-then-redirect pattern) |
+
+The click is recorded from a **capture-phase** listener on `window`, so it lands
+before the page's own handler runs and calls `open()`, and only for
+`event.isTrusted` events — a programmatic `.click()` cannot forge one.
+
+This is deliberately aggressive: it also swallows a cross-site share or OAuth
+pop-up opened from a *button* rather than a link. That trade is why the toolbar
+popup carries a switch for it, per-site and globally.
+
+**The browser-level guard.** A pop that survives all of that still has to create
+a browsing context, and `webNavigation.onCreatedNavigationTarget` reports it.
+One rule governs that guard, and it is easy to get wrong: **only an outright
+block closes a tab.** A list-wide `$removeparam=utm_source` compiles to a filter
+with no URL pattern and therefore matches every request; treating any non-`allow`
+verdict as grounds to close turns the extension into a browser that destroys
+every cross-site tab the user opens. The decision lives in
+`src/core/popup-decision.js`, away from browser APIs, precisely so it can be
+unit tested rather than trusted.
+
 ### D10 — Native-function tamper detection
 
 ```js
@@ -631,7 +666,23 @@ A *pack* is a declarative bundle:
 }
 ```
 
-### 5.1 aniwave (`aniwave.to` / `.at` / `.li` / `.se` and successors)
+### 5.1 aniwave and aniwaves
+
+Two related but **distinct** families, and the distinction bites:
+
+- `aniwave.*` — the 9anime successor (`aniwave.to`, `.at`, `.li`, `.se`, …)
+- `aniwaves.*` — `aniwaves.ru` and its siblings
+
+The entity form matches the base label exactly, so `aniwave.*` does **not** cover
+`aniwaves.ru`. Both are listed explicitly. Getting this wrong is silent: the pack
+simply never activates, and the site behaves as though no blocker were installed.
+
+Pop-unders on these sites usually fire from inside the embedded **player iframe**
+rather than the page around it, so the player hosts (Filemoon, mp4upload,
+vidplay, streamtape, streamwish, dood, mixdrop and the rest) are covered in their
+own right — as a single rule with a shared domain list, because the build emits
+one bundle per domain group and separate rules meant separate copies of identical
+code.
 
 Known behaviour, from the uAssets issue history:
 
